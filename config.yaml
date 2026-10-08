@@ -1,0 +1,29 @@
+# ---------------------------------------------------------------------------
+# config.yaml - single source of truth for the Information Retrieval System.
+# Anything omitted here falls back to the defaults in src/config.py.
+# ---------------------------------------------------------------------------
+
+dataset:
+  source: sample          # sample | jsonl | dir
+  path: null              # file (jsonl) or folder (dir) when source != sample
+  max_docs: 1000          # cap on how many documents are ingested
+
+storage:
+  backend: memory         # memory | json
+  json_path: data/index.json
+
+preprocessing:
+  remove_stopwords: true
+  stemming: true
+
+ranking:
+  scorer: bm25            # bm25 | tfidf
+  top_k: 10
+  bm25:
+    k1: 1.5               # term-frequency saturation
+    b: 0.75               # document-length normalisation (0 = none, 1 = full)
+
+spelling:
+  enabled: true
+  max_edit_distance: 2
+  auto_correct: false     # true: silently replace unknown terms with the best suggestion

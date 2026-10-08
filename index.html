@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IRS Search</title>
+<style>
+  :root { --bg:#0f1420; --card:rgba(255,255,255,.06); --line:rgba(255,255,255,.12); --fg:#e8ecf4; --mute:#8b95aa; --acc:#6ea8ff; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:16px/1.5 system-ui,sans-serif; background:radial-gradient(circle at 20% 0%,#1b2540,var(--bg)); color:var(--fg); min-height:100vh; }
+  main { max-width:760px; margin:0 auto; padding:48px 16px; }
+  h1 { font-weight:600; margin:0 0 4px; }
+  p.sub { color:var(--mute); margin:0 0 24px; }
+  form { display:flex; gap:8px; }
+  input, select, button { font:inherit; color:var(--fg); background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px 14px; }
+  input { flex:1; } button { background:var(--acc); color:#0b1020; border:0; font-weight:600; cursor:pointer; }
+  .meta { color:var(--mute); margin:16px 0 8px; font-size:14px; }
+  .hit { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:10px; }
+  .hit h3 { margin:0 0 4px; font-size:17px; } .score { float:right; color:var(--acc); font-variant-numeric:tabular-nums; }
+  .hit p { margin:0; color:var(--mute); font-size:14px; }
+  .error { color:#ff9b9b; } a { color:var(--acc); } code { color:var(--acc); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Information Retrieval System</h1>
+  <p class="sub">Boolean queries (<code>AND OR NOT PHRASE</code>), ranked with BM25 or TF-IDF. <a href="/visualize">Index visualiser</a></p>
+  <form id="f">
+    <input id="q" placeholder='e.g. "machine" PHRASE "learning"' autofocus>
+    <select id="scorer"><option value="bm25">BM25</option><option value="tfidf">TF-IDF</option></select>
+    <button>Search</button>
+  </form>
+  <div id="out"></div>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+$('f').addEventListener('submit', async e => {
+  e.preventDefault();
+  const url = `/search?q=${encodeURIComponent($('q').value)}&scorer=${$('scorer').value}`;
+  const res = await fetch(url), data = await res.json();
+  if (!res.ok) { $('out').innerHTML = `<p class="error">${esc(data.detail)}</p>`; return; }
+  let html = '';
+  for (const [w, s] of Object.entries(data.corrections))
+    html += `<p class="meta">Did you mean <a href="#" data-s="${esc(s)}">${esc(s)}</a> instead of "${esc(w)}"?</p>`;
+  html += `<p class="meta">${data.total_matches} match(es) in ${data.elapsed_ms.toFixed(2)} ms &middot; postfix: <code>${esc(data.postfix)}</code></p>`;
+  for (const h of data.hits)
+    html += `<div class="hit"><span class="score">${h.score.toFixed(3)} ${data.scorer}</span><h3>${esc(h.title)}</h3><p>${esc(h.snippet)}</p></div>`;
+  $('out').innerHTML = html;
+});
+$('out').addEventListener('click', e => {
+  if (e.target.dataset.s) { e.preventDefault(); $('q').value = e.target.dataset.s; $('f').requestSubmit(); }
+});
+</script>
+</body>
+</html>

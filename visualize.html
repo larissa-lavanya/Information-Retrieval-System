@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Skip-pointer visualiser</title>
+<style>
+  :root { --bg:#0f1420; --card:rgba(255,255,255,.06); --line:rgba(255,255,255,.14); --fg:#e8ecf4; --mute:#8b95aa; --acc:#6ea8ff; --skip:#ffb86b; }
+  body { margin:0; font:16px/1.5 system-ui,sans-serif; background:var(--bg); color:var(--fg); }
+  main { max-width:1000px; margin:0 auto; padding:40px 16px; }
+  form { display:flex; gap:8px; margin:12px 0; }
+  input, button { font:inherit; color:var(--fg); background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px 14px; }
+  button { background:var(--acc); color:#0b1020; border:0; font-weight:600; cursor:pointer; }
+  .mute { color:var(--mute); } a { color:var(--acc); }
+  svg { width:100%; background:var(--card); border:1px solid var(--line); border-radius:12px; margin-top:12px; }
+  .node rect { fill:#1d2740; stroke:var(--acc); } .node text { fill:var(--fg); font-size:13px; text-anchor:middle; }
+  .skip { fill:none; stroke:var(--skip); stroke-width:1.6; } .next { stroke:var(--mute); stroke-width:1.2; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Postings list &amp; skip pointers</h1>
+  <p class="mute">Grey arrows follow the list one entry at a time; orange arcs are skip pointers (every &radic;n entries). <a href="/">&larr; Search</a></p>
+  <form id="f"><input id="t" value="software" placeholder="term"><button>Show</button></form>
+  <div id="info" class="mute"></div>
+  <svg id="svg" height="120"></svg>
+</main>
+<script>
+const NS = 'http://www.w3.org/2000/svg', W = 54, GAP = 18, PER_ROW = 14, ROW_H = 120;
+const el = (n, a, p) => { const e = document.createElementNS(NS, n); for (const k in a) e.setAttribute(k, a[k]); p && p.appendChild(e); return e; };
+const pos = i => ({ x: 20 + (i % PER_ROW) * (W + GAP), y: 60 + Math.floor(i / PER_ROW) * ROW_H });
+
+document.getElementById('f').addEventListener('submit', async e => {
+  e.preventDefault();
+  const term = document.getElementById('t').value.trim(), svg = document.getElementById('svg'), info = document.getElementById('info');
+  svg.innerHTML = '';
+  const res = await fetch('/postings/' + encodeURIComponent(term)), d = await res.json();
+  if (!res.ok) { info.textContent = d.detail; return; }
+  info.textContent = `stem "${d.term}" - df=${d.df}, skip step=${d.skip_step || 'none (list too short)'}`;
+  const rows = Math.ceil(d.doc_ids.length / PER_ROW);
+  svg.setAttribute('viewBox', `0 0 ${20 + PER_ROW * (W + GAP)} ${rows * ROW_H + 20}`);
+  svg.setAttribute('height', rows * ROW_H * 0.8 + 40);
+  // skip arcs first so nodes draw on top
+  for (const [from, to] of Object.entries(d.skip_pointers)) {
+    const a = pos(+from), b = pos(+to);
+    const sameRow = a.y === b.y, midX = (a.x + b.x) / 2 + W / 2;
+    const path = sameRow
+      ? `M ${a.x + W / 2} ${a.y} Q ${midX} ${a.y - 48} ${b.x + W / 2} ${b.y}`
+      : `M ${a.x + W / 2} ${a.y} C ${a.x + W / 2} ${a.y - 60}, ${b.x + W / 2} ${b.y - 60}, ${b.x + W / 2} ${b.y}`;
+    el('path', { d: path, class: 'skip' }, svg);
+  }
+  d.doc_ids.forEach((id, i) => {
+    const p = pos(i), g = el('g', { class: 'node' }, svg);
+    if (i < d.doc_ids.length - 1 && pos(i + 1).y === p.y)
+      el('line', { x1: p.x + W, y1: p.y + 16, x2: p.x + W + GAP, y2: p.y + 16, class: 'next' }, g);
+    el('rect', { x: p.x, y: p.y, width: W, height: 32, rx: 8 }, g);
+    el('text', { x: p.x + W / 2, y: p.y + 21 }, g).textContent = id;
+  });
+});
+document.getElementById('f').requestSubmit();
+</script>
+</body>
+</html>

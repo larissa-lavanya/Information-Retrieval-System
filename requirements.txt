@@ -1,0 +1,5 @@
+PyYAML>=6.0
+
+# Only needed for the web UI (api.py):
+fastapi>=0.110
+uvicorn>=0.29
